@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Smart Greenhouse Platform</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0d1b2d;
+      --panel2: #10243c;
+      --text: #eef6ff;
+      --muted: #9fb4ca;
+      --line: #203a57;
+      --accent: #36a3ff;
+      --green: #72e0c4;
+      --red: #ff7070;
+      --yellow: #ffc857;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #06101d 0%, #091728 45%, #07111f 100%);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { width: min(1180px, 92%); margin: auto; }
+    
+    /* Header & Navigation */
+    header {
+      padding: 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .logo-area h1 { margin: 0; font-size: 22px; color: var(--green); display: flex; align-items: center; gap: 8px; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(114, 224, 196, 0.1);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+    .status-badge.manual {
+      background: rgba(255, 200, 87, 0.1);
+      color: var(--yellow);
+      border-color: var(--yellow);
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    nav.sticky {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(7, 17, 31, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .navrow { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; }
+    .navrow button {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .navrow button:hover { background: var(--panel); color: #fff; }
+    .navrow button.active { background: var(--panel2); color: var(--accent); font-weight: 700; border: 1px solid var(--line); }
+
+    /* Layout Sections */
+    section { padding: 32px 0; }
+    .section-title { font-size: 22px; margin: 0 0 20px 0; color: #fff; }
+    
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+    
+    .card {
+      background: rgba(13, 27, 45, 0.84);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .card-value { font-size: 26px; font-weight: bold; }
+    .card-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* Control Actuators Grid */
+    .controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .control-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .control-info h4 { margin: 0 0 4px 0; font-size: 16px; }
+    .control-info p { margin: 0; font-size: 12px; color: var(--muted); }
+    
+    /* Toggle Switch Component */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #1a2f47;
+      transition: .3s;
+      border-radius: 34px;
+      border: 1px solid var(--line);
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--muted);
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(23px); background-color: #fff; }
+    input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+    /* Zone Selector & Settings Form */
+    .zone-select-group { display: flex; gap: 10px; margin-bottom: 20px; }
+    .zone-btn {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .zone-btn.active { background: var(--accent); color: #06101d; font-weight: bold; border-color: var(--accent); }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #06101d;
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .btn-submit {
+      padding: 10px 20px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #06101d;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* Charts Section */
+    .chart-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      height: 300px;
+      position: relative;
+    }
+    
+    .alert-banner {
+      background: rgba(255, 112, 112, 0.1);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Исходные данные зон
+    const initialZones = [
+      {
+        id: "ZONE-01",
+        name: "Помидоры (Tomatoes)",
+        temperature: 24.8,
+        humidity: 67,
+        soil: 42,
+        light: 18400,
+        waterLevel: 72,
+        mode: "auto",
+        actuators: { pump: false, fan: false, growLight: false, heater: false }
+      },
+      {
+        id: "ZONE-02",
+        name: "Огурцы (Cucumbers)",
+        temperature: 26.2,
+        humidity: 74,
+        soil: 58,
+        light: 14200,
+        waterLevel: 72,
+        mode: "auto",
+        actuators: { pump: false, fan: true, growLight: false, heater: false }
+      },
+      {
+        id: "ZONE-03",
+        name: "Зелень (Greens)",
+        temperature: 21.5,
+        humidity: 60,
+        soil: 35,
+        light: 21000,
+        waterLevel: 72,
+        mode: "manual",
+        actuators: { pump: true, fan: false, growLight: true, heater: false }
+      }
+    ];
+
+    // Исходные пороги для автоматики
+    const initialSettings = {
+      "ZONE-01": { tempMin: 20, tempMax: 28, soilMin: 40, lightMin: 12000 },
+      "ZONE-02": { tempMin: 22, tempMax: 29, soilMin: 50, lightMin: 10000 },
+      "ZONE-03": { tempMin: 18, tempMax: 25, soilMin: 30, lightMin: 15000 }
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [zones, setZones] = useState(() => {
+        const saved = localStorage.getItem('gh_zones');
+        return saved ? JSON.parse(saved) : initialZones;
+      });
+      const [settings, setSettings] = useState(() => {
+        const saved = localStorage.getItem('gh_settings');
+        return saved ? JSON.parse(saved) : initialSettings;
+      });
+      const [selectedZoneId, setSelectedZoneId] = useState("ZONE-01");
+
+      const tempChartRef = useRef(null);
+      const soilChartRef = useRef(null);
+      const chartInstance = useRef({});
+
+      // Сохранение в localStorage
+      useEffect(() => {
+        localStorage.setItem('gh_zones', JSON.stringify(zones));
+      }, [zones]);
+
+      useEffect(() => {
+        localStorage.setItem('gh_settings', JSON.stringify(settings));
+      }, [settings]);
+
+      // Автоматика и имитация датчиков
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setZones(prevZones => prevZones.map(zone => {
+            // Небольшая симуляция колебаний показателей
+            const newTemp = +(zone.temperature + (Math.random() * 0.8 - 0.4)).toFixed(1);
+            const newSoil = Math.max(0, Math.min(100, +(zone.soil + (Math.random() * 1.2 - 0.6)).toFixed(0)));
+            const newWater = Math.max(0, +(zone.waterLevel - 0.05).toFixed(1));
+
+            let updatedActuators = { ...zone.actuators };
+            const zoneSet = settings[zone.id];
+
+            // Автоматическая логика при режиме auto
+            if (zone.mode === 'auto' && zoneSet) {
+              // Полив с защитой от сухого бака
+              if (newSoil < zoneSet.soilMin && newWater > 15) {
+                updatedActuators.pump = true;
+              } else if (newSoil >= zoneSet.soilMin + 10) {
+                updatedActuators.pump = false;
+              }
+
+              // Вентиляция и обогрев
+              updatedActuators.fan = newTemp > zoneSet.tempMax;
+              updatedActuators.heater = newTemp < zoneSet.tempMin;
+              
+              // Фитолампа
+              updatedActuators.growLight = zone.light < zoneSet.lightMin;
+            }
+
+            return {
+              ...zone,
+              temperature: newTemp,
+              soil: newSoil,
+              waterLevel: newWater,
+              actuators: updatedActuators
+            };
+          }));
+        }, 4000);
+
+        return () => clearInterval(interval);
+      }, [settings]);
+
+      // Отрисовка графиков Chart.js
+      useEffect(() => {
+        if (activeTab === 'dashboard' || activeTab === 'analytics') {
+          if (tempChartRef.current && soilChartRef.current) {
+            // График температуры
+            if (!chartInstance.current.temp) {
+              chartInstance.current.temp = new Chart(tempChartRef.current, {
+                type: 'line',
+                data: {
+                  labels: ['10:00', '10:05', '10:10', '10:15', '10:20'],
+                  datasets: [{
+                    label: 'Температура (°C)',
+                    data: [23.1, 23.8, 24.2, 24.8, zones[0].temperature],
+                    borderColor: '#36a3ff',
+                    tension: 0.35
+                  }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+              });
+            } else {
+              chartInstance.current.temp.data.datasets[0].data[4] = zones[0].temperature;
+              chartInstance.current.temp.update();
+            }
+
+            // График почвы
+            if (!chartInstance.current.soil) {
+              chartInstance.current.soil = new Chart(soilChartRef.current, {
+                type: 'line',
+                data: {
+                  labels: ['10:00', '10:05', '10:10', '10:15', '10:20'],
+                  datasets: [{
+                    label: 'Влажность почвы (%)',
+                    data: [48, 46, 44, 42, zones[0].soil],
+                    borderColor: '#72e0c4',
+                    tension: 0.35
+                  }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+              });
+            } else {
+              chartInstance.current.soil.data.datasets[0].data[4] = zones[0].soil;
+              chartInstance.current.soil.update();
+            }
+          }
+        }
+      }, [activeTab, zones]);
+
+      const currentZone = zones.find(z => z.id === selectedZoneId) || zones[0];
+      const currentSettings = settings[selectedZoneId] || initialSettings["ZONE-01"];
+
+      // Переключатель исполнительных устройств
+      const toggleActuator = (zoneId, actuatorKey) => {
+        setZones(zones.map(z => {
+          if (z.id === zoneId) {
+            return {
+              ...z,
+              actuators: { ...z.actuators, [actuatorKey]: !z.actuators[actuatorKey] }
+            };
+          }
+          return z;
+        }));
+      };
+
+      // Переключение режима Auto/Manual
+      const toggleMode = (zoneId) => {
+        setZones(zones.map(z => {
+          if (z.id === zoneId) {
+            return { ...z, mode: z.mode === 'auto' ? 'manual' : 'auto' };
+          }
+          return z;
+        }));
+      };
+
+      // Обновление настроек
+      const handleSettingChange = (field, val) => {
+        setSettings({
+          ...settings,
+          [selectedZoneId]: {
+            ...currentSettings,
+            [field]: Number(val)
+          }
+        });
+      };
+
+      return (
+        <div>
+          <header className="container">
+            <div className="logo-area">
+              <h1>🌱 IoT Smart Greenhouse</h1>
+            </div>
+            <div className={`status-badge ${currentZone.mode === 'manual' ? 'manual' : ''}`}>
+              <span className="pulse-dot"></span>
+              Зона: {currentZone.name} [{currentZone.mode.toUpperCase()}]
+            </div>
+          </header>
+
+          <nav className="sticky">
+            <div className="container navrow">
+              <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Дашборд</button>
+              <button className={activeTab === 'zones' ? 'active' : ''} onClick={() => setActiveTab('zones')}>Зоны</button>
+              <button className={activeTab === 'control' ? 'active' : ''} onClick={() => setActiveTab('control')}>Управление</button>
+              <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>Настройки</button>
+            </div>
+          </nav>
+          <nav class="sticky">
+    <div class="container navrow">
+      <a href="index.html">Главная</a>
+    </div>
+  </nav>
+
+
+          <main className="container">
+            {/* Аварийный баннер */}
+            {currentZone.waterLevel <= 15 && (
+              <div className="alert-banner" style={{marginTop: '20px'}}>
+                ⚠️ <b>Критический уровень воды:</b> {currentZone.waterLevel}%! Автоматический полив заблокирован в целях безопасности.
+              </div>
+            )}
+
+            {/* ВКЛАДКА 1: ДАШБОРД */}
+            {activeTab === 'dashboard' && (
+              <section>
+                <h2 className="section-title">Текущие показатели [{currentZone.name}]</h2>
+                <div className="grid-4">
+                  <div className="card">
+                    <div className="card-title">Температура</div>
+                    <div className="card-value">{currentZone.temperature} °C</div>
+                    <div className="card-meta">Норма: {currentSettings.tempMin} - {currentSettings.tempMax}°C</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-title">Влажность почвы</div>
+                    <div className="card-value">{currentZone.soil} %</div>
+                    <div className="card-meta">Порог полива: &lt; {currentSettings.soilMin}%</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-title">Влажность воздуха</div>
+                    <div className="card-value">{currentZone.humidity} %</div>
+                    <div className="card-meta">Оптимально: 60-80%</div>
+                  </div>
+                  <div className="card">
+                    <div className="card-title">Запас воды в баке</div>
+                    <div className="card-value" style={{color: currentZone.waterLevel <= 15 ? 'var(--red)' : 'var(--text)'}}>
+                      {currentZone.waterLevel} %
+                    </div>
+                    <div className="card-meta">Мин. уровень: 15%</div>
+                  </div>
+                </div>
+
+                <h2 className="section-title" style={{marginTop: '32px'}}>Мониторинг графиков</h2>
+                <div className="grid-2">
+                  <div className="chart-box"><canvas ref={tempChartRef}></canvas></div>
+                  <div className="chart-box"><canvas ref={soilChartRef}></canvas></div>
+                </div>
+              </section>
+            )}
+
+            {/* ВКЛАДКА 2: ЗОНЫ */}
+            {activeTab === 'zones' && (
+              <section>
+                <h2 className="section-title">Состояние всех зон теплицы</h2>
+                <div className="grid-2">
+                  {zones.map(z => (
+                    <div key={z.id} className="card" style={{borderColor: z.id === selectedZoneId ? 'var(--accent)' : 'var(--line)'}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+                        <h3 style={{margin: 0, color: '#fff'}}>{z.name}</h3>
+                        <span style={{fontSize: '12px', padding: '4px 8px', borderRadius: '6px', background: 'var(--panel2)', color: 'var(--muted)'}}>
+                          {z.id}
+                        </span>
+                      </div>
+                      <p style={{fontSize: '14px', color: 'var(--muted)'}}>Режим работы: <b>{z.mode.toUpperCase()}</b></p>
+                      <div className="grid-4" style={{marginTop: '12px'}}>
+                        <div><small>Темп:</small> <div><b>{z.temperature}°C</b></div></div>
+                        <div><small>Почва:</small> <div><b>{z.soil}%</b></div></div>
+                        <div><small>Воздух:</small> <div><b>{z.humidity}%</b></div></div>
+                        <div><small>Свет:</small> <div><b>{z.light} lx</b></div></div>
+                      </div>
+                      <button 
+                        className="btn-submit" 
+                        style={{marginTop: '16px', width: '100%', background: z.id === selectedZoneId ? 'var(--accent)' : 'var(--panel2)', color: z.id === selectedZoneId ? '#000' : '#fff'}}
+                        onClick={() => setSelectedZoneId(z.id)}
+                      >
+                        {z.id === selectedZoneId ? 'Выбрана как активная' : 'Выбрать зону'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ВКЛАДКА 3: УПРАВЛЕНИЕ */}
+            {activeTab === 'control' && (
+              <section>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                  <h2 className="section-title" style={{margin: 0}}>Панель управления [{currentZone.name}]</h2>
+                  <button className="btn-submit" onClick={() => toggleMode(currentZone.id)}>
+                    Переключить на {currentZone.mode === 'auto' ? 'РУЧНОЙ (MANUAL)' : 'АВТО (AUTO)'}
+                  </button>
+                </div>
+
+                {currentZone.mode === 'auto' && (
+                  <div className="alert-banner" style={{borderColor: 'var(--accent)', color: 'var(--accent)', background: 'rgba(54, 163, 255, 0.1)'}}>
+                    ℹ️ Включен <b>Автоматический режим</b>. Исполнительные устройства управляются программно на основе порогов из настроек.
+                  </div>
+                )}
+
+                <div className="controls-grid">
+                  <div className="control-card">
+                    <div className="control-info">
+                      <h4>💧 Насос полива (Pump)</h4>
+                      <p>Авто-включение при почве &lt; {currentSettings.soilMin}%</p>
+                    </div>
+                    <label className="switch">
+                      <input 
+                        type="checkbox" 
+                        disabled={currentZone.mode === 'auto'}
+                        checked={currentZone.actuators.pump} 
+                        onChange={() => toggleActuator(currentZone.id, 'pump')} 
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="control-card">
+                    <div className="control-info">
+                      <h4>🌀 Вентиляция (Fan)</h4>
+                      <p>Авто-включение при темп. &gt; {currentSettings.tempMax}°C</p>
+                    </div>
+                    <label className="switch">
+                      <input 
+                        type="checkbox" 
+                        disabled={currentZone.mode === 'auto'}
+                        checked={currentZone.actuators.fan} 
+                        onChange={() => toggleActuator(currentZone.id, 'fan')} 
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="control-card">
+                    <div className="control-info">
+                      <h4>💡 Фитолампа (Grow Light)</h4>
+                      <p>Авто-досветка при свете &lt; {currentSettings.lightMin} lx</p>
+                    </div>
+                    <label className="switch">
+                      <input 
+                        type="checkbox" 
+                        disabled={currentZone.mode === 'auto'}
+                        checked={currentZone.actuators.growLight} 
+                        onChange={() => toggleActuator(currentZone.id, 'growLight')} 
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="control-card">
+                    <div className="control-info">
+                      <h4>🔥 Обогреватель (Heater)</h4>
+                      <p>Авто-включение при темп. &lt; {currentSettings.tempMin}°C</p>
+                    </div>
+                    <label className="switch">
+                      <input 
+                        type="checkbox" 
+                        disabled={currentZone.mode === 'auto'}
+                        checked={currentZone.actuators.heater} 
+                        onChange={() => toggleActuator(currentZone.id, 'heater')} 
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ВКЛАДКА 4: НАСТРОЙКИ */}
+            {activeTab === 'settings' && (
+              <section>
+                <h2 className="section-title">Настройки порогов автоматики</h2>
+                
+                <div className="zone-select-group">
+                  {zones.map(z => (
+                    <button 
+                      key={z.id} 
+                      className={`zone-btn ${z.id === selectedZoneId ? 'active' : ''}`}
+                      onClick={() => setSelectedZoneId(z.id)}
+                    >
+                      {z.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="card" style={{maxWidth: '600px'}}>
+                  <h3>Пороговые значения [{currentZone.name}]</h3>
+                  <hr style={{borderColor: 'var(--line)', margin: '16px 0'}} />
+
+                  <div className="form-group">
+                    <label>Мин. температура воздуха (°C) — включение обогрева</label>
+                    <input 
+                      type="number" 
+                      value={currentSettings.tempMin} 
+                      onChange={(e) => handleSettingChange('tempMin', e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Макс. температура воздуха (°C) — включение вентиляции</label>
+                    <input 
+                      type="number" 
+                      value={currentSettings.tempMax} 
+                      onChange={(e) => handleSettingChange('tempMax', e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Мин. влажность почвы (%) — порог активации полива</label>
+                    <input 
+                      type="number" 
+                      value={currentSettings.soilMin} 
+                      onChange={(e) => handleSettingChange('soilMin', e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Мин. уровень освещенности (Lux) — включение фитолампы</label>
+                    <input 
+                      type="number" 
+                      value={currentSettings.lightMin} 
+                      onChange={(e) => handleSettingChange('lightMin', e.target.value)} 
+                    />
+                  </div>
+
+                  <div style={{marginTop: '20px', color: 'var(--green)', fontSize: '13px'}}>
+                    ✓ Изменения сохраняются автоматически в localStorage и сразу применяются к автоматике.
+                  </div>
+                </div>
+              </section>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
